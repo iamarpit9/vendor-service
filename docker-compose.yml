@@ -1,45 +1,100 @@
-version: '3.8'
+version: "3.8"
+
 services:
   api:
-    build: ./api
+    build:
+      context: .
+      dockerfile: ./api/Dockerfile
+    container_name: vendor-service-api
+    volumes:
+      - ./api:/api
+      - ./db:/db 
+    working_dir: /api
+    command: node index.js
     ports:
       - "8080:8080"
     environment:
-      - MONGODB_URI=${MONGODB_URI}
+      - PORT=8080
+      - MONGODB_URI=mongodb://mongo:27017/vendor-db
       - REDIS_URL=redis://redis:6379
+      - SYNC_VENDOR_URL=http://sync-vendor:4000/fetch
+      - ASYNC_VENDOR_URL=http://async-vendor:5000/fetch
+    depends_on:
+      - mongo
+      - redis
+      - sync-vendor
+      - async-vendor
 
   worker:
-    build: ./worker
-    depends_on:
-      - redis
-      - api
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    container_name: vendor-service-worker
+    volumes:
+      - ./worker:/worker
+    working_dir: /worker
+    command: node index.js
     environment:
-      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_URI=mongodb://mongo:27017/vendor-db
       - REDIS_URL=redis://redis:6379
-      - SYNC_VENDOR_URL=http://sync-vendor:5001/
-      - ASYNC_VENDOR_URL=http://async-vendor:5002/
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   sync-vendor:
-    build: ./vendor-mocks/sync
+    build:
+      context: ./vendor-mocks/sync
+    container_name: vendor-service-sync-vendor
+    volumes:
+      - ./vendor-mocks/sync:/vendor-mocks/sync
+    working_dir: /vendor-mocks/sync
+    command: node index.js
     ports:
       - "5001:5001"
+    environment:
+      - PORT=5001
 
   async-vendor:
-    build: ./vendor-mocks/async
+    build:
+      context: ./vendor-mocks/async
+    container_name: vendor-service-async-vendor
+    volumes:
+      - ./vendor-mocks/async:/vendor-mocks/async
+    working_dir: /vendor-mocks/async
+    command: node index.js
     ports:
       - "5002:5002"
-
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
+    environment:
+      - PORT=5002
 
   mongo:
-    image: mongo
+    image: mongo:6
+    container_name: vendor-service-mongo
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db
+      - mongo-data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 2
+
+  redis:
+    image: redis/redis-stack:latest
+    container_name: vendor-service-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 2
 
 volumes:
-  mongo_data:
+  mongo-data:
+  redis-data:
