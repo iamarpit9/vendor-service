@@ -1,0 +1,22 @@
+# Node.js dependencies
+**/node_modules/
+**/npm-debug.log*
+**/yarn-error.log
+
+# dotenv environment files
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+**/logs/
+**/*.log
+
+# Docker files
+**/.docker/
+**/docker-compose.override.yml
+
+# Build artifacts
+**/dist/
+**/build/

@@ -1,0 +1,45 @@
+version: '3.8'
+services:
+  api:
+    build: ./api
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - REDIS_URL=redis://redis:6379
+
+  worker:
+    build: ./worker
+    depends_on:
+      - redis
+      - api
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - REDIS_URL=redis://redis:6379
+      - SYNC_VENDOR_URL=http://sync-vendor:5001/
+      - ASYNC_VENDOR_URL=http://async-vendor:5002/
+
+  sync-vendor:
+    build: ./vendor-mocks/sync
+    ports:
+      - "5001:5001"
+
+  async-vendor:
+    build: ./vendor-mocks/async
+    ports:
+      - "5002:5002"
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
